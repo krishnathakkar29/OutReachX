@@ -10,8 +10,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-1 flex-col w-full overflow-hidden">
           <Navbar />
           <div className="flex-1 overflow-y-auto">
-
-          <SidebarInset>{children}</SidebarInset>
+            <SidebarInset>{children}</SidebarInset>
           </div>
         </div>
       </div>

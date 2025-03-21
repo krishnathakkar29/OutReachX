@@ -1,19 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
-import { X, Send, Paperclip, Loader2 } from "lucide-react";
+import MDEditor from "@uiw/react-md-editor";
+import { Loader2, Paperclip, Send, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import MDEditor from "@uiw/react-md-editor";
+import { useFieldArray, useForm } from "react-hook-form";
 import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
 import {
   Form,
   FormControl,
@@ -22,21 +17,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { sendEmailSchema } from "@/lib/schema/send-mail";
 
-const formSchema = z.object({
-  recipients: z
-    .array(
-      z.object({
-        email: z.string().email("Invalid email address"),
-      })
-    )
-    .min(1, "At least one recipient is required"),
-  subject: z.string().min(1, "Subject is required"),
-  companyName: z.string().min(1, "Company name is required"),
-  body: z.string().min(1, "Email content is required"),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof sendEmailSchema>;
 
 export default function SendEmailPage() {
   const [isMarkdown, setIsMarkdown] = useState(false);
@@ -44,7 +31,7 @@ export default function SendEmailPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(sendEmailSchema),
     defaultValues: {
       recipients: [{ email: "" }],
       subject: "",
@@ -76,15 +63,52 @@ export default function SendEmailPage() {
   };
 
   async function onSubmit(data: FormValues) {
+    console.log(data);
+    console.log(files);
+    setIsLoading(true);
+    const toastId = toast.loading("Sending email...");
     try {
-      setIsLoading(true);
-      // Add your email sending logic here
-      console.log("Form data:", data);
-      console.log("Files:", files);
+      const formData = new FormData();
+
+      // Add recipients
+      data.recipients.forEach((recipient) => {
+        formData.append("recipients", recipient.email);
+      });
+
+      // Add other fields
+      formData.append("subject", data.subject);
+      formData.append("companyName", data.companyName);
+      formData.append("body", data.body);
+
+      // Add files
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await fetch("/api/send-mail", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      toast.success("Email sent successfully!", { id: toastId });
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to send email");
+      }
 
       toast.success("Email sent successfully!");
+
+      // Reset form after successful submission
+      form.reset();
+      setFiles([]);
     } catch (error) {
-      toast.error("Failed to send email");
+      console.error(error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send email",
+        { id: toastId }
+      );
       console.error(error);
     } finally {
       setIsLoading(false);

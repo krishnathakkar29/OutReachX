@@ -1,5 +1,5 @@
+import { MagnetIcon } from "lucide-react";
 import * as React from "react";
-import { GalleryVerticalEnd, MagnetIcon } from "lucide-react";
 
 import {
   Sidebar,
@@ -12,13 +12,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-import { Label } from "./ui/label";
+import { Label } from "../ui/label";
 
 interface NavItem {
   title: string;
@@ -41,7 +38,7 @@ const data: { navMain: NavSection[] } = {
       items: [
         {
           title: "Send Email",
-          url: "/send-email",
+          url: "/send-mail",
         },
         {
           title: "View History",

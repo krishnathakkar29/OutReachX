@@ -23,6 +23,7 @@ model Email {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   attachments Attachment[]
+  SentEmail   SentEmail[]
 }
 
 model Attachment {
@@ -31,4 +32,17 @@ model Attachment {
   emailId   String
   file_name String
   file_url  String // URL to file in Supabase Storage
+}
+
+model SentEmail {
+  id         String   @id @default(cuid())
+  emailId    String
+  email      Email    @relation(fields: [emailId], references: [id])
+  recipient  String
+  sendCount  Int      @default(1)
+  lastSentAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([emailId, recipient])
 }

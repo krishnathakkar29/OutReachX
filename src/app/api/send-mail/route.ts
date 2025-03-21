@@ -4,6 +4,8 @@ import { uploadFile } from "@/lib/supabase/storage-client";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
       body,
     });
 
-    const uploadedAttachments = [];
+    const uploadedAttachments: any = [];
     console.log(files);
     for (const file of files) {
       console.log("pehle");
@@ -42,19 +44,29 @@ export async function POST(req: Request) {
 
     console.log("emaik ke pehoe");
 
-    const email = await prisma.email.create({
-      data: {
-        companyName: validatedData.companyName,
-        subject: validatedData.subject,
-        body: validatedData.body,
-        recipients: validatedData.recipients.map((r) => r.email),
-        attachments: {
-          create: uploadedAttachments.map(({ file_name, file_url }) => ({
-            file_name,
-            file_url,
-          })),
+    const email = await prisma.$transaction(async (prisma) => {
+      return prisma.email.create({
+        data: {
+          companyName: validatedData.companyName,
+          subject: validatedData.subject,
+          body: validatedData.body,
+          recipients: validatedData.recipients.map((r) => r.email),
+          attachments: {
+            create: uploadedAttachments.map(
+              ({
+                file_name,
+                file_url,
+              }: {
+                file_name: string;
+                file_url: string;
+              }) => ({
+                file_name,
+                file_url,
+              })
+            ),
+          },
         },
-      },
+      });
     });
 
     console.log("email ke baad", email);
@@ -68,23 +80,61 @@ export async function POST(req: Request) {
       },
     });
 
+    const sentResults = [];
     for (const recipient of validatedData.recipients) {
-      await transporter.sendMail({
-        from: process.env.SMTP_USER,
-        to: recipient.email,
-        subject: validatedData.subject,
-        html: validatedData.body,
-        attachments: uploadedAttachments.map((attachment) => ({
-          filename: attachment.file_name,
-          content: attachment.buffer,
-        })),
-      });
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_USER,
+          to: recipient.email,
+          subject: validatedData.subject,
+          html: validatedData.body,
+          attachments: uploadedAttachments.map((attachment: any) => ({
+            filename: attachment.file_name,
+            content: attachment.buffer,
+          })),
+        });
+
+        await prisma.sentEmail.upsert({
+          where: {
+            emailId_recipient: {
+              emailId: email.id,
+              recipient: recipient.email,
+            },
+          },
+          create: {
+            emailId: email.id,
+            recipient: recipient.email,
+            sendCount: 1,
+            lastSentAt: new Date(),
+          },
+          update: {
+            sendCount: { increment: 1 },
+            lastSentAt: new Date(),
+          },
+        });
+
+        sentResults.push({ recipient: recipient.email, success: true });
+        await delay(500);
+      } catch (error) {
+        console.error(`Failed to send to ${recipient.email}:`, error);
+        sentResults.push({
+          recipient: recipient.email,
+          success: false,
+          error: error instanceof Error ? error.message : "Sending failed",
+        });
+      }
     }
 
+    const successCount = sentResults.filter((r) => r.success).length;
+    const allSuccess = successCount === validatedData.recipients.length;
+
     return NextResponse.json({
-      success: true,
-      message: "Emails sent successfully",
+      success: allSuccess,
+      message: allSuccess
+        ? "All emails sent successfully"
+        : `${successCount}/${validatedData.recipients.length} emails delivered`,
       emailId: email.id,
+      details: sentResults,
     });
   } catch (error) {
     console.error("Email sending error:", error);

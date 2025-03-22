@@ -19,6 +19,16 @@ export type EmailHistory = {
   sendCount: number;
 };
 
+interface SendEmailDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedEmails: Array<{
+    recipient: string;
+    emailId: string; // This still remains emailId since it's coming from the database
+    companyName: string;
+  }>;
+}
+
 export function EmailHistoryTable({ data }: { data: EmailHistory[] }) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [filterValue, setFilterValue] = React.useState("");
@@ -101,13 +111,25 @@ export function EmailHistoryTable({ data }: { data: EmailHistory[] }) {
     );
   }, [data, filterValue]);
 
-  const selectedRecipients = React.useMemo(() => {
+  const selectedEmails = React.useMemo(() => {
     return Object.keys(rowSelection)
-      .map((key) => filteredData[parseInt(key)]?.recipient)
-      .filter(Boolean);
+      .map((key) => ({
+        recipient: filteredData[parseInt(key)]?.recipient,
+        emailId: filteredData[parseInt(key)]?.id,
+        companyName: filteredData[parseInt(key)]?.companyName,
+      }))
+      .filter(
+        (
+          item
+        ): item is {
+          recipient: string;
+          emailId: string;
+          companyName: string;
+        } => Boolean(item.recipient && item.emailId && item.companyName)
+      );
   }, [rowSelection, filteredData]);
 
-  const hasSelectedRows = selectedRecipients.length > 0;
+  const hasSelectedRows = selectedEmails.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -134,21 +156,19 @@ export function EmailHistoryTable({ data }: { data: EmailHistory[] }) {
       <div className="flex justify-end px-4">
         <Button
           onClick={() => setIsDialogOpen(true)}
-          disabled={selectedRecipients.length === 0}
+          disabled={selectedEmails.length === 0}
           className="w-full sm:w-auto"
         >
           <MailIcon className="h-4 w-4 mr-2" />
           Send Email
-          {selectedRecipients.length > 0
-            ? ` (${selectedRecipients.length})`
-            : ""}
+          {selectedEmails.length > 0 ? ` (${selectedEmails.length})` : ""}
         </Button>
       </div>
 
       <SendEmailDialog
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
-        recipients={selectedRecipients}
+        selectedEmails={selectedEmails}
       />
     </div>
   );

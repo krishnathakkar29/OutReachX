@@ -14,35 +14,43 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Company {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  emailAddresses Email[]
+}   
+
 model Email {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  emailAddress String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  OutreachEmail OutreachEmail[]
+
+  @@index([companyId, emailAddress])
+}
+
+model OutreachEmail {
   id          String       @id @default(cuid())
-  companyName String
   subject     String
   body        String
-  recipients  String[]
+  sentAt      DateTime     @default(now())
+  emailId     String
+  recipient   Email        @relation(fields: [emailId], references: [id])
+  attachments Attachment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  attachments Attachment[]
-  SentEmail   SentEmail[]
 }
 
 model Attachment {
-  id        String @id @default(uuid())
-  email     Email  @relation(fields: [emailId], references: [id])
-  emailId   String
-  file_name String
-  file_url  String // URL to file in Supabase Storage
-}
-
-model SentEmail {
-  id         String   @id @default(cuid())
-  emailId    String
-  email      Email    @relation(fields: [emailId], references: [id])
-  recipient  String
-  sendCount  Int      @default(1)
-  lastSentAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([emailId, recipient])
+  id              String        @id @default(uuid())
+  outreachEmail   OutreachEmail @relation(fields: [outreachEmailId], references: [id])
+  outreachEmailId String
+  file_name       String
+  file_url        String // URL to file in Supabase Storage
 }

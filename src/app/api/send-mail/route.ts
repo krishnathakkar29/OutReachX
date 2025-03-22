@@ -44,32 +44,17 @@ export async function POST(req: Request) {
 
     console.log("emaik ke pehoe");
 
-    const email = await prisma.$transaction(async (prisma) => {
-      return prisma.email.create({
-        data: {
-          companyName: validatedData.companyName,
-          subject: validatedData.subject,
-          body: validatedData.body,
-          recipients: validatedData.recipients.map((r) => r.email),
-          attachments: {
-            create: uploadedAttachments.map(
-              ({
-                file_name,
-                file_url,
-              }: {
-                file_name: string;
-                file_url: string;
-              }) => ({
-                file_name,
-                file_url,
-              })
-            ),
-          },
-        },
-      });
+    const company = await prisma.company.upsert({
+      where: { name: validatedData.companyName },
+      update: {},
+      create: {
+        name: validatedData.companyName,
+      },
     });
 
-    console.log("email ke baad", email);
+    const sentResults = [];
+    const outreachEmailIds = [];
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -80,9 +65,48 @@ export async function POST(req: Request) {
       },
     });
 
-    const sentResults = [];
     for (const recipient of validatedData.recipients) {
       try {
+        let emailRecord = await prisma.email.findFirst({
+          where: {
+            companyId: company.id,
+            emailAddress: recipient.email,
+          },
+        });
+
+        if (!emailRecord) {
+          emailRecord = await prisma.email.create({
+            data: {
+              companyId: company.id,
+              emailAddress: recipient.email,
+            },
+          });
+        }
+
+        const outreachEmail = await prisma.outreachEmail.create({
+          data: {
+            subject: validatedData.subject,
+            body: validatedData.body,
+            emailId: emailRecord.id,
+            attachments: {
+              create: uploadedAttachments.map(
+                ({
+                  file_name,
+                  file_url,
+                }: {
+                  file_name: string;
+                  file_url: string;
+                }) => ({
+                  file_name,
+                  file_url,
+                })
+              ),
+            },
+          },
+        });
+
+        outreachEmailIds.push(outreachEmail.id);
+
         await transporter.sendMail({
           from: process.env.SMTP_USER,
           to: recipient.email,
@@ -94,26 +118,11 @@ export async function POST(req: Request) {
           })),
         });
 
-        await prisma.sentEmail.upsert({
-          where: {
-            emailId_recipient: {
-              emailId: email.id,
-              recipient: recipient.email,
-            },
-          },
-          create: {
-            emailId: email.id,
-            recipient: recipient.email,
-            sendCount: 1,
-            lastSentAt: new Date(),
-          },
-          update: {
-            sendCount: { increment: 1 },
-            lastSentAt: new Date(),
-          },
+        sentResults.push({
+          recipient: recipient.email,
+          success: true,
+          outreachEmailId: outreachEmail.id,
         });
-
-        sentResults.push({ recipient: recipient.email, success: true });
         await delay(500);
       } catch (error) {
         console.error(`Failed to send to ${recipient.email}:`, error);
@@ -133,7 +142,7 @@ export async function POST(req: Request) {
       message: allSuccess
         ? "All emails sent successfully"
         : `${successCount}/${validatedData.recipients.length} emails delivered`,
-      emailId: email.id,
+      outreachEmailIds,
       details: sentResults,
     });
   } catch (error) {

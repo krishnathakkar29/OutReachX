@@ -40,6 +40,7 @@ export async function getEmailHistory() {
       },
     });
 
+    console.log(emails);
     // Transform the data into the required format
     return emails.map((email) => ({
       id: email.id,

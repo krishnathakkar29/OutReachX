@@ -24,9 +24,8 @@ export async function POST(req: Request) {
     });
 
     const uploadedAttachments: any = [];
-    console.log(files);
+
     for (const file of files) {
-      console.log("pehle");
       const { imageUrl, error } = await uploadFile({
         file,
         bucket: "email-resume", // Your Supabase bucket name

@@ -16,13 +16,11 @@ export async function uploadFile({ file, bucket, folder }: UploadProps) {
   const fileName = file.name;
   const fileExtension = fileName.slice(fileName.lastIndexOf(".") + 1);
   const path = `${folder ? folder + "/" : ""}${uuidv4()}.${fileExtension}`;
-
+  const bucketName = bucket && bucket.trim() ? bucket : "email-resume";
   try {
     const storage = getStorage();
-    console.log(path);
-    console.log(file + "file");
     const { data, error } = await storage
-      .from("email-resume")
+      .from(bucketName)
       .upload(path, file);
 
     if (error) {

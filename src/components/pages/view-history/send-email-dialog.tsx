@@ -1,5 +1,6 @@
 "use client";
 
+import { sendFollowUpEmail } from "@/actions/mailHistoryAction";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,12 +18,11 @@ import {
   followUpSchema,
 } from "@/lib/schema/send-mail";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Paperclip, Send, X, Loader2 } from "lucide-react";
+import { Loader2, Paperclip, Send, X } from "lucide-react";
+import { useCallback } from "react";
+import { useDropzone } from "react-dropzone";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { sendFollowUpEmail } from "@/actions/mailHistoryAction";
-import { useDropzone } from "react-dropzone";
-import { useCallback, useState } from "react";
 
 interface SendEmailDialogProps {
   isOpen: boolean;

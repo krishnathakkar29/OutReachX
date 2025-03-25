@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const recipients = formData.getAll("recipients") as string[];
     const subject = formData.get("subject") as string;
     const companyName = formData.get("companyName") as string;
-    const body = formData.get("body") as string;
+    const body = (formData.get("body") as string).replace(/\n/g, "<br>");
     const files = formData.getAll("files") as File[];
 
     // First download the default resume
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
           from: process.env.SMTP_USER,
           to: recipient.email,
           subject: validatedData.subject,
-          html: validatedData.body,
+          html: body, // Use formatted body
           attachments: uploadedAttachments.map((attachment: any) => ({
             filename: attachment.file_name,
             content: attachment.buffer,

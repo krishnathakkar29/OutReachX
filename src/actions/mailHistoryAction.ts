@@ -5,9 +5,10 @@ import {
   followUpSchema,
   type FollowUpSchemaType,
 } from "@/lib/schema/send-mail";
-import { uploadFile } from "@/lib/supabase/storage-client";
+import { uploadFile, downloadFile } from "@/lib/supabase/storage-client";
 import { revalidatePath } from "next/cache";
 import nodemailer from "nodemailer";
+import type { Attachment } from "nodemailer/lib/mailer";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -55,15 +56,24 @@ export async function getEmailHistory() {
   }
 }
 
+type EmailAttachment = {
+  fileName: string;
+  fileUrl: string;
+  buffer: Buffer | null;
+};
+
 export async function sendFollowUpEmail(data: FollowUpSchemaType) {
   try {
     const validatedData = followUpSchema.parse(data);
+
+    // Format body to preserve line breaks
+    const formattedBody = validatedData.body.replace(/\n/g, "<br>");
 
     if (validatedData.password !== process.env.PASSWORD) {
       return { success: false, error: "Invalid password" };
     }
 
-    // Setup nodemailer transporter
+    // Setup email transporter
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -74,82 +84,95 @@ export async function sendFollowUpEmail(data: FollowUpSchemaType) {
       },
     });
 
-    // Handle file uploads
-    const attachmentPromises =
-      validatedData.files?.map(async (file) => {
-        const { imageUrl, error } = await uploadFile({
-          file,
-          bucket: "email-resume",
-          folder: "attachments",
-        });
+    // Get default resume
+    const { data: defaultResume, error: resumeError } = await downloadFile();
+    if (resumeError) {
+      return { success: false, error: "Failed to fetch default resume" };
+    }
 
-        if (error) throw new Error(`File upload failed: ${error}`);
+    // Initialize attachments array with default resume
+    let emailAttachments: EmailAttachment[] = [
+      {
+        fileName: "Krishna_Thakkar_Resume.pdf",
+        fileUrl: "",
+        buffer: defaultResume as Buffer,
+      },
+    ];
 
-        const fileBuffer = Buffer.from(await file.arrayBuffer());
-
-        return {
-          fileName: file.name,
-          fileUrl: imageUrl,
-          buffer: fileBuffer,
-        };
-      }) ?? [];
-
-    const attachments = await Promise.all(attachmentPromises);
-
-    // Use transaction for data consistency and send emails
-    const result = await prisma.$transaction(async (tx) => {
-      const outreachEmails = await Promise.all(
-        validatedData.recipients.map(async (recipient) => {
-          // Create outreach email record
-          const outreachEmail = await tx.outreachEmail.create({
-            data: {
-              subject: validatedData.subject,
-              body: validatedData.body,
-              emailId: recipient.companyId,
-              attachments: {
-                create: attachments.map(({ fileName, fileUrl }) => ({
-                  file_name: fileName,
-                  file_url: fileUrl,
-                })),
-              },
-            },
-            include: {
-              recipient: {
-                include: {
-                  company: true,
-                },
-              },
-              attachments: true,
-            },
+    // Handle additional file uploads if any
+    if (validatedData.files?.length) {
+      const userAttachments = await Promise.all(
+        validatedData.files.map(async (file) => {
+          const { imageUrl, error } = await uploadFile({
+            file,
+            bucket: "email-resume",
+            folder: "attachments",
           });
+          if (error) throw new Error(`File upload failed: ${error}`);
 
-          // Send email using nodemailer
-          await transporter.sendMail({
-            from: process.env.SMTP_USER,
-            to: recipient.email,
-            subject: validatedData.subject,
-            html: validatedData.body,
-            attachments: attachments.map((attachment) => ({
-              filename: attachment.fileName,
-              content: attachment.buffer,
-            })),
-          });
-
-          // Add delay between emails
-          await delay(500);
-
-          return outreachEmail;
+          const fileBuffer = Buffer.from(await file.arrayBuffer());
+          return {
+            fileName: file.name,
+            fileUrl: imageUrl,
+            buffer: fileBuffer,
+          };
         })
       );
+      emailAttachments = [...emailAttachments, ...userAttachments];
+    }
 
-      return outreachEmails;
-    });
+    const outreachEmails = [];
+
+    // Process each recipient sequentially instead of using transaction
+    for (const recipient of validatedData.recipients) {
+      const outreachEmail = await prisma.outreachEmail.create({
+        data: {
+          subject: validatedData.subject,
+          body: formattedBody, // Store formatted body
+          emailId: recipient.companyId,
+          attachments: {
+            create: emailAttachments.map(({ fileName, fileUrl }) => ({
+              file_name: fileName,
+              file_url: fileUrl || "",
+            })),
+          },
+        },
+        include: {
+          recipient: {
+            include: { company: true },
+          },
+          attachments: true,
+        },
+      });
+
+      // Send email with formatted body
+      await transporter.sendMail({
+        from: process.env.SMTP_USER,
+        to: recipient.email,
+        subject: validatedData.subject,
+        html: formattedBody, // Use formatted body here
+        attachments: emailAttachments
+          .filter(
+            (attachment): attachment is EmailAttachment & { buffer: Buffer } =>
+              attachment.buffer !== null
+          )
+          .map(
+            (attachment): Attachment => ({
+              filename: attachment.fileName,
+              content: attachment.buffer,
+            })
+          ),
+      });
+
+      await delay(500);
+      outreachEmails.push(outreachEmail);
+    }
 
     revalidatePath("/email-history");
 
     return {
       success: true,
-      data: result,
+      data: outreachEmails,
       message: `Successfully sent emails to ${validatedData.recipients.length} recipients`,
     };
   } catch (error) {

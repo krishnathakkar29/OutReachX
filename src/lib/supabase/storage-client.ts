@@ -19,9 +19,7 @@ export async function uploadFile({ file, bucket, folder }: UploadProps) {
   const bucketName = bucket && bucket.trim() ? bucket : "email-resume";
   try {
     const storage = getStorage();
-    const { data, error } = await storage
-      .from(bucketName)
-      .upload(path, file);
+    const { data, error } = await storage.from(bucketName).upload(path, file);
 
     if (error) {
       return { imageUrl: "", error: "Image upload failed" };
@@ -35,6 +33,31 @@ export async function uploadFile({ file, bucket, folder }: UploadProps) {
   } catch (error) {
     console.log(error);
     return { imageUrl: "", error: "Failed to compress image" };
+  }
+}
+
+export async function downloadFile() {
+  const storage = getStorage();
+  try {
+    const { data, error } = await storage
+      .from("email-resume")
+      .download("attachments/0a1ec39a-9cdf-48c2-b495-80fc6380db54.pdf");
+
+    if (error) {
+      return { data: null, error: "File download failed" };
+    }
+
+    // Convert Blob to Buffer if needed
+    if (data instanceof Blob) {
+      const arrayBuffer = await data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return { data: buffer, error: null };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error("Download error:", error);
+    return { data: null, error: "Failed to download file" };
   }
 }
 

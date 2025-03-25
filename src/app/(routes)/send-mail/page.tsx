@@ -63,8 +63,6 @@ export default function SendEmailPage() {
   };
 
   async function onSubmit(data: FormValues) {
-    console.log(data);
-    console.log(files);
     setIsLoading(true);
     const toastId = toast.loading("Sending email...");
     try {
@@ -75,10 +73,13 @@ export default function SendEmailPage() {
         formData.append("recipients", recipient.email);
       });
 
+      // Format body with line breaks preserved
+      const formattedBody = data.body.replace(/\n/g, "<br>");
+
       // Add other fields
       formData.append("subject", data.subject);
       formData.append("companyName", data.companyName);
-      formData.append("body", data.body);
+      formData.append("body", formattedBody);
 
       // Add files
       files.forEach((file) => {

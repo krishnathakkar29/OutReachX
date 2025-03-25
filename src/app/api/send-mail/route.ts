@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmailSchema } from "@/lib/schema/send-mail";
-import { uploadFile } from "@/lib/supabase/storage-client";
+import { downloadFile, uploadFile } from "@/lib/supabase/storage-client";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
@@ -16,20 +16,27 @@ export async function POST(req: Request) {
     const body = formData.get("body") as string;
     const files = formData.getAll("files") as File[];
 
-    const validatedData = sendEmailSchema.parse({
-      recipients: recipients.map((email: string) => ({ email })),
-      subject,
-      companyName,
-      body,
-    });
+    // First download the default resume
+    const { data: defaultResume, error: downloadError } = await downloadFile();
+    if (downloadError) {
+      throw new Error("Failed to download default resume");
+    }
 
-    const uploadedAttachments: any = [];
+    // Prepare attachments array with default resume
+    const uploadedAttachments: any = [
+      {
+        file_name: "Krishna_Thakkar_Resume.pdf", // Your default resume name
+        file_url: "", // Not needed for email sending
+        buffer: defaultResume,
+      },
+    ];
 
+    // Handle user uploaded files
     for (const file of files) {
       const { imageUrl, error } = await uploadFile({
         file,
-        bucket: "email-resume", // Your Supabase bucket name
-        folder: "attachments", // Optional folder
+        bucket: "email-resume",
+        folder: "attachments",
       });
       if (error) throw new Error("File upload failed");
 
@@ -41,7 +48,12 @@ export async function POST(req: Request) {
       });
     }
 
-    console.log("emaik ke pehoe");
+    const validatedData = sendEmailSchema.parse({
+      recipients: recipients.map((email: string) => ({ email })),
+      subject,
+      companyName,
+      body,
+    });
 
     const company = await prisma.company.upsert({
       where: { name: validatedData.companyName },
@@ -50,9 +62,6 @@ export async function POST(req: Request) {
         name: validatedData.companyName,
       },
     });
-
-    const sentResults = [];
-    const outreachEmailIds = [];
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -63,6 +72,9 @@ export async function POST(req: Request) {
         pass: process.env.SMTP_PASSWORD,
       },
     });
+
+    const sentResults = [];
+    const outreachEmailIds = [];
 
     for (const recipient of validatedData.recipients) {
       try {
@@ -97,7 +109,7 @@ export async function POST(req: Request) {
                   file_url: string;
                 }) => ({
                   file_name,
-                  file_url,
+                  file_url: file_url || "", // Handle default resume case
                 })
               ),
             },
@@ -106,6 +118,7 @@ export async function POST(req: Request) {
 
         outreachEmailIds.push(outreachEmail.id);
 
+        // Send email with all attachments
         await transporter.sendMail({
           from: process.env.SMTP_USER,
           to: recipient.email,

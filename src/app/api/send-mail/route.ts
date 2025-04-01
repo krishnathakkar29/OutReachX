@@ -15,6 +15,11 @@ export async function POST(req: Request) {
     const companyName = formData.get("companyName") as string;
     const body = (formData.get("body") as string).replace(/\n/g, "<br>");
     const files = formData.getAll("files") as File[];
+    const password = formData.get("password") as string;
+
+    if (password != process.env.PASSWORD) {
+      throw new Error("Invalid password");
+    }
 
     // First download the default resume
     const { data: defaultResume, error: downloadError } = await downloadFile();

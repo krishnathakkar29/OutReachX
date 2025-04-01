@@ -11,6 +11,7 @@ export const sendEmailSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   companyName: z.string().min(1, "Company name is required"),
   body: z.string().min(1, "Email content is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const followUpSchema = z.object({

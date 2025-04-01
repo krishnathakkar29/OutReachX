@@ -37,6 +37,7 @@ export default function SendEmailPage() {
       subject: "",
       companyName: "",
       body: "",
+      password: "",
     },
   });
 
@@ -86,6 +87,8 @@ export default function SendEmailPage() {
         formData.append("files", file);
       });
 
+      formData.append("password", data.password);
+
       const response = await fetch("/api/send-mail", {
         method: "POST",
         body: formData,
@@ -110,7 +113,6 @@ export default function SendEmailPage() {
         error instanceof Error ? error.message : "Failed to send email",
         { id: toastId }
       );
-      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -321,6 +323,26 @@ export default function SendEmailPage() {
                       />
                     )}
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="w-full ">
+            <FormField
+              control={form.control}
+              name="companyName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="enter password to send mail..."
+                      type="password"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

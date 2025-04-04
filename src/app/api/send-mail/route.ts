@@ -58,6 +58,7 @@ export async function POST(req: Request) {
       subject,
       companyName,
       body,
+      password,
     });
 
     const company = await prisma.company.upsert({

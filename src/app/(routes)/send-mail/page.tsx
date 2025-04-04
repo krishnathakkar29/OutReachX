@@ -332,7 +332,7 @@ export default function SendEmailPage() {
           <div className="w-full ">
             <FormField
               control={form.control}
-              name="companyName"
+              name="password"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>

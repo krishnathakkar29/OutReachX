@@ -33,7 +33,6 @@ export function EmailHistoryTable({ data }: { data: EmailHistory[] }) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [filterValue, setFilterValue] = React.useState("");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-
   // Define the columns for our table
   const columns: ColumnDef<EmailHistory>[] = [
     {

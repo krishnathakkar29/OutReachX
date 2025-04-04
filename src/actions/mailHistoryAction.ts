@@ -26,9 +26,6 @@ export async function getEmailHistory() {
           },
         },
         OutreachEmail: {
-          orderBy: {
-            sentAt: "desc",
-          },
           select: {
             sentAt: true,
           },
@@ -38,6 +35,9 @@ export async function getEmailHistory() {
             OutreachEmail: true,
           },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 

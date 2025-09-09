@@ -40,8 +40,6 @@ export async function getEmailHistory() {
         createdAt: "desc",
       },
     });
-
-    console.log(emails);
     // Transform the data into the required format
     return emails.map((email) => ({
       id: email.id,
@@ -66,14 +64,12 @@ export async function sendFollowUpEmail(data: FollowUpSchemaType) {
   try {
     const validatedData = followUpSchema.parse(data);
 
-    // Format body to preserve line breaks
     const formattedBody = validatedData.body.replace(/\n/g, "<br>");
 
     if (validatedData.password !== process.env.PASSWORD) {
       return { success: false, error: "Invalid password" };
     }
 
-    // Setup email transporter
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
@@ -84,19 +80,12 @@ export async function sendFollowUpEmail(data: FollowUpSchemaType) {
       },
     });
 
-    // Get default resume
-    const { data: defaultResume, error: resumeError } = await downloadFile();
-    if (resumeError) {
-      return { success: false, error: "Failed to fetch default resume" };
-    }
-
-    // Initialize attachments array with default resume
     let emailAttachments: EmailAttachment[] = [
-      {
-        fileName: "Krishna_Thakkar_Resume.pdf",
-        fileUrl: "",
-        buffer: defaultResume as Buffer,
-      },
+      // {
+      //   fileName: "Krishna_Thakkar_Resume.pdf",
+      //   fileUrl: "",
+      //   buffer: defaultResume as Buffer,
+      // },
     ];
 
     // Handle additional file uploads if any

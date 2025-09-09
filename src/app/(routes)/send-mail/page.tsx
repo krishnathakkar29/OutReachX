@@ -74,15 +74,12 @@ export default function SendEmailPage() {
         formData.append("recipients", recipient.email);
       });
 
-      // Format body with line breaks preserved
       const formattedBody = data.body.replace(/\n/g, "<br>");
 
-      // Add other fields
       formData.append("subject", data.subject);
       formData.append("companyName", data.companyName);
       formData.append("body", formattedBody);
 
-      // Add files
       files.forEach((file) => {
         formData.append("files", file);
       });
@@ -104,7 +101,6 @@ export default function SendEmailPage() {
 
       toast.success("Email sent successfully!");
 
-      // Reset form after successful submission
       form.reset();
       setFiles([]);
     } catch (error) {

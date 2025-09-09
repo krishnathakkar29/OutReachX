@@ -22,26 +22,26 @@ export async function POST(req: Request) {
     }
 
     // First download the default resume
-    const { data: defaultResume, error: downloadError } = await downloadFile();
-    if (downloadError) {
-      throw new Error("Failed to download default resume");
-    }
+    // const { data: defaultResume, error: downloadError } = await downloadFile();
+    // if (downloadError) {
+    //   throw new Error("Failed to download default resume");
+    // }
 
     // Prepare attachments array with default resume
     const uploadedAttachments: any = [
-      {
-        file_name: "Krishna_Thakkar_Resume.pdf", // Your default resume name
-        file_url: "", // Not needed for email sending
-        buffer: defaultResume,
-      },
+      // {
+      //   file_name: "Krishna_Thakkar_Resume.pdf", // Your default resume name
+      //   file_url: "", // Not needed for email sending
+      //   buffer: defaultResume,
+      // },
     ];
 
     // Handle user uploaded files
     for (const file of files) {
       const { imageUrl, error } = await uploadFile({
         file,
-        bucket: "email-resume",
-        folder: "attachments",
+        bucket: process.env.BUCKET_NAME!,
+        folder: "outreachx-attachments",
       });
       if (error) throw new Error("File upload failed");
 
